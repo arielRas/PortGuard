@@ -1,3 +1,7 @@
 <Solution>
-  <Project Path="src/PortGuard.Workers/PortGuard.Workers.csproj" Id="9473792b-a461-4a6e-8e57-1e1a67892777" />
+  <Folder Name="/src/">
+    <Project Path="src/PortGuard.Application/PortGuard.Application.csproj" />
+    <Project Path="src/PortGuard.Infrastructure/PortGuard.Infrastructure.csproj" />
+    <Project Path="src/PortGuard.Workers/PortGuard.Workers.csproj" Id="9473792b-a461-4a6e-8e57-1e1a67892777" />
+  </Folder>
 </Solution>
