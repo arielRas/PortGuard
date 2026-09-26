@@ -5,13 +5,14 @@ namespace PortGuard.Application.PortPipelines.Pipelines
 {
     public class PortValidationPipeline : IPortValidationPipeline
     {
-        private readonly int _port;
         private readonly IReadOnlyList<IPortValidationStep> _steps;
-        public int Port => _port;
+        public int Port { get; }
+        public int TimeOutMs { get; }
 
-        public PortValidationPipeline(int port, IEnumerable<IPortValidationStep> steps)
+        public PortValidationPipeline(int port, int timeOutMs, IEnumerable<IPortValidationStep> steps)
         {
-            _port = port;
+            Port = port;
+            TimeOutMs = timeOutMs;
             _steps = steps.ToList();
         }
 
