@@ -2,6 +2,6 @@
 {
     public interface IProxyTunnel
     {
-        Task ForwardAsync(IClientConnection clientConnection, ReadOnlyMemory<byte> payload, CancellationToken token = default);
+        Task ForwardAsync(IClientConnection connection, ReadOnlyMemory<byte> payload, CancellationToken token = default);
     }
 }
