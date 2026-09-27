@@ -1,6 +1,6 @@
 ﻿namespace PortGuard.Application.Abstractions.Connections
 {
-    public interface IClientConnection
+    public interface IClientConnection : IAsyncDisposable
     {
         string Id { get; }
         int IncomingPort { get; }
@@ -9,5 +9,7 @@
         string TargetHost { get; }
 
         ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken token = default);
+        ValueTask DropConnectionAsync(string reason, CancellationToken token = default);
+        Stream GetStream();
     }
 }

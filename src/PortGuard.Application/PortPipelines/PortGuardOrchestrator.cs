@@ -8,17 +8,14 @@ namespace PortGuard.Application.PortPipelines
 {
     public class PortGuardOrchestrator : IPortGuardOrchestrator
     {
-        private readonly IConnectionDropper _connectionDropper;
         private readonly IProxyTunnel _proxyTunnel;
         private readonly Dictionary<int, IPortValidationPipeline> _portsPipelines;
 
         public PortGuardOrchestrator(
             IOptions<PortGuardOptions> options,
             IPortValidationPipelineFactory pipelineFactory,
-            IConnectionDropper connectionDropper,
             IProxyTunnel proxyTunnel)
         {
-            _connectionDropper = connectionDropper;
             _proxyTunnel = proxyTunnel;
             _portsPipelines = CreatePipelines(pipelineFactory, options.Value);
         }
@@ -28,7 +25,7 @@ namespace PortGuard.Application.PortPipelines
             {
                 string message = $"No pipeline found for port {connection.IncomingPort}. Dropping connection.";
 
-                await _connectionDropper.DropConnectionAsync(connection, message, token);
+                await connection.DropConnectionAsync(message, token);
 
                 return;
             }
@@ -48,14 +45,14 @@ namespace PortGuard.Application.PortPipelines
             catch (OperationCanceledException) when (!token.IsCancellationRequested)
             {
                 string message = $"Timeout while reading from connection {connection.Id} on port {connection.IncomingPort}. Dropping connection.";
-                await _connectionDropper.DropConnectionAsync(connection, message, token);
+                await connection.DropConnectionAsync(message, token);
                 return;
             }
 
             if (bytesRead == 0)
             {
                 string message = $"Connection {connection.Id} on port {connection.IncomingPort} closed by client without sending data. Dropping connection.";
-                await _connectionDropper.DropConnectionAsync(connection, message, token);
+                await connection.DropConnectionAsync(message, token);
                 return;
             }
 
@@ -66,7 +63,7 @@ namespace PortGuard.Application.PortPipelines
             if (validationResult.IsFailed)
             {
                 string message = $"Connection {connection.Id} on port {connection.IncomingPort} failed validation: {validationResult.Error}. Dropping connection.";
-                await _connectionDropper.DropConnectionAsync(connection, message, token);
+                await connection.DropConnectionAsync(message, token);
                 return;
             }
 
