@@ -1,33 +1,38 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using PortGuard.Application.Abstractions.Connections;
 using PortGuard.Application.Abstractions.ValidationPipelines;
 using PortGuard.Application.Common.Options;
 using PortGuard.Application.Common.Results;
+using PortGuard.Application.Exceptions;
+using PortGuard.Application.PortPipelines.Validators;
+using System.Net.Sockets;
 
 namespace PortGuard.Application.PortPipelines
 {
     public class PortGuardOrchestrator : IPortGuardOrchestrator
     {
         private readonly IProxyTunnel _proxyTunnel;
+        private readonly ILogger<PortGuardOrchestrator> _logger;
         private readonly Dictionary<int, IPortValidationPipeline> _portsPipelines;
 
         public PortGuardOrchestrator(
-            IOptions<PortGuardOptions> options,
             IPortValidationPipelineFactory pipelineFactory,
-            IProxyTunnel proxyTunnel)
+            IProxyTunnel proxyTunnel,
+            IOptions<PortGuardOptions> options,
+            ILogger<PortGuardOrchestrator> logger)
         {
             _proxyTunnel = proxyTunnel;
+            _logger = logger;
             _portsPipelines = CreatePipelines(pipelineFactory, options.Value);
         }
         public async ValueTask ProcessConnectionAsync(IClientConnection connection, CancellationToken token = default)
         {
             if (!_portsPipelines.TryGetValue(connection.IncomingPort, out IPortValidationPipeline? pipeline))
             {
-                string message = $"No pipeline found for port {connection.IncomingPort}. Dropping connection.";
+                await connection.DropConnectionAsync(token);
 
-                await connection.DropConnectionAsync(message, token);
-
-                return;
+                throw new BusinessRuleException($"No pipeline found for port {connection.IncomingPort}.");
             }
 
             byte[] buffer = new byte[1024];
@@ -44,15 +49,30 @@ namespace PortGuard.Application.PortPipelines
             }
             catch (OperationCanceledException) when (!token.IsCancellationRequested)
             {
-                string message = $"Timeout while reading from connection {connection.Id} on port {connection.IncomingPort}. Dropping connection.";
-                await connection.DropConnectionAsync(message, token);
+                await HandleDropConnection(
+                    connection,
+                     $"Timeout while reading from connection {connection.Id} on port {connection.IncomingPort}.",
+                    token);
+
+                return;
+            }
+            catch (SocketException)
+            {
+                await HandleDropConnection(
+                    connection,
+                    $"Client connection ID: {connection.Id} was reset by the peer.",
+                    token);
+
                 return;
             }
 
             if (bytesRead == 0)
             {
-                string message = $"Connection {connection.Id} on port {connection.IncomingPort} closed by client without sending data. Dropping connection.";
-                await connection.DropConnectionAsync(message, token);
+                await HandleDropConnection(
+                    connection,
+                    $"Connection {connection.Id} on port {connection.IncomingPort} closed by client without sending data.",
+                    token);
+
                 return;
             }
 
@@ -62,8 +82,11 @@ namespace PortGuard.Application.PortPipelines
 
             if (validationResult.IsFailed)
             {
-                string message = $"Connection {connection.Id} on port {connection.IncomingPort} failed validation: {validationResult.Error}. Dropping connection.";
-                await connection.DropConnectionAsync(message, token);
+                await HandleDropConnection(
+                    connection,
+                    $"Connection {connection.Id} on port {connection.IncomingPort} failed validation: {validationResult.Error}.",
+                    token);
+
                 return;
             }
 
@@ -76,12 +99,25 @@ namespace PortGuard.Application.PortPipelines
 
             foreach (PortPolicyOptions policy in options.PortPolicies)
             {
+                Result validationResult = PortPoliciesValidator.Validate(policy);
+
+                if (validationResult.IsFailed)
+                {
+                    throw new BusinessRuleException(validationResult.Error);
+                }
+
                 IPortValidationPipeline pipeline = pipelineFactory.Create(policy);
 
                 portsPipelines[policy.Port] = pipeline;
             }
 
             return portsPipelines;
+        }
+
+        private async ValueTask HandleDropConnection(IClientConnection connection, string message, CancellationToken token)
+        {
+            await connection.DropConnectionAsync(token);
+            _logger.LogWarning("{Message} Dropped connection", message);
         }
     }
 }
