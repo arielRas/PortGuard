@@ -9,7 +9,7 @@ namespace PortGuard.Infrastructure
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
         {
             return services
-                .AddSingleton<IClientConnectionFactory, ClientConnectionFactory>()
+                .AddSingleton<IPortListener, PortListener>()
                 .AddSingleton<IProxyTunnel, DuplexProxyTunnel>();
         }
     }
