@@ -1,5 +1,6 @@
 ﻿using PortGuard.Application.Abstractions.ValidationPipelines;
 using PortGuard.Application.Common.Options;
+using PortGuard.Application.Exceptions;
 using PortGuard.Application.PortPipelines.Pipelines;
 using PortGuard.Application.PortPipelines.Steps;
 
@@ -23,7 +24,9 @@ namespace PortGuard.Application.PortPipelines.Factories
                 steps.Add(new HeaderPatternValidationStep(options.HeaderPattern));
             }
 
-            return new PortValidationPipeline(options.Port, options.TimeoutMs, steps);
+            return steps.Count > 0
+                ? new PortValidationPipeline(options.Port, options.TimeoutMs, steps)
+                : throw new BusinessRuleException($"No validation steps could be created for port {options.Port} and policy {options.Name}.");
         }
     }
 }
