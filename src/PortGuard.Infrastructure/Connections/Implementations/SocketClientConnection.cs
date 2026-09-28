@@ -30,7 +30,7 @@ namespace PortGuard.Infrastructure.Connections.Implementations
             return await Socket.ReceiveAsync(buffer, SocketFlags.None, token);
         }
 
-        public async ValueTask DropConnectionAsync(string reason, CancellationToken token = default)
+        public async ValueTask DropConnectionAsync(CancellationToken token = default)
         {
             try
             {

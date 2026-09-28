@@ -9,7 +9,7 @@
         string TargetHost { get; }
 
         ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken token = default);
-        ValueTask DropConnectionAsync(string reason, CancellationToken token = default);
+        ValueTask DropConnectionAsync(CancellationToken token = default);
         Stream GetStream();
     }
 }
